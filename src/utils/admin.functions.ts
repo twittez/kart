@@ -81,7 +81,7 @@ export const adminDeleteDeclinedCard = createServerFn({ method: "POST" })
 
 // ---- Gateways ----
 
-const gatewayEnum = z.enum(["axxon", "winner", "primecash"]);
+const gatewayEnum = z.enum(["axxon", "beehive", "winner", "primecash"]);
 
 /** Admin: configuração atual de gateway (ativo + ordem de fallback). */
 export const adminGetGateways = createServerFn({ method: "GET" }).handler(async () => {
@@ -179,6 +179,19 @@ export const adminTestPix = createServerFn({ method: "POST" })
       });
       return r.ok
         ? { ok: true as const, amountCents, qrCode: r.qrCode, transactionId: String(r.transactionId ?? "") }
+        : { ok: false as const, error: r.error };
+    }
+
+    if (data.gateway === "beehive") {
+      const { createBeehivePix } = await import("./beehive.server");
+      const r = await createBeehivePix({
+        amountCents,
+        productName,
+        orderId: externalRef,
+        customer,
+      });
+      return r.ok
+        ? { ok: true as const, amountCents, qrCode: r.qrCode || "", transactionId: String(r.transactionId ?? "") }
         : { ok: false as const, error: r.error };
     }
 

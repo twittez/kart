@@ -14,11 +14,12 @@ export const Route = createFileRoute("/admin/gateways")({
   component: AdminGatewaysPage,
 });
 
-type G = "axxon" | "winner" | "primecash";
+type G = "axxon" | "beehive" | "winner" | "primecash";
 const ALL: { key: G; label: string; note: string }[] = [
-  { key: "axxon", label: "Axxon Pay", note: "Pix direto, confirmação por postback" },
+  { key: "axxon", label: "Axxon Pay (Miracle)", note: "Pix direto com chave pública e secreta" },
+  { key: "beehive", label: "Beehive (Miracle)", note: "Pix direto com Basic Auth e polling em tempo real" },
   { key: "winner", label: "Winner Pay", note: "Pix direto, confirmação por webhook" },
-  { key: "primecash", label: "PrimeCash", note: "Pix direto, confirmação por webhook" },
+  { key: "primecash", label: "PrimeCash", note: "Gateway alternativo" },
 ];
 
 function AdminGatewaysPage() {

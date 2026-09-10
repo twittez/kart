@@ -1,203 +1,146 @@
-// ============================================================
-// VERSÃO DEMO (SOMENTE VISUAL) — SEM GATEWAY DE PAGAMENTO
-// ------------------------------------------------------------
-// Este arquivo substitui a integração real de pagamento por
-// funções de demonstração, para que todas as telas da oferta
-// (checkout, PIX, upsell) funcionem visualmente sem nenhuma
-// API, chave ou banco de dados configurado.
-//
-// Para ligar um gateway real, troque as funções abaixo pela
-// integração desejada, mantendo os mesmos nomes e retornos.
-// ============================================================
 import { createServerFn } from "@tanstack/react-start";
-
-type DemoSession = { sessionId: string; amountCents: number; trackingCode: string };
-
-function randomHex(len: number) {
-  let out = "";
-  for (let i = 0; i < len; i++) out += "0123456789ABCDEF"[Math.floor(Math.random() * 16)];
-  return out;
-}
-
-function makeTrackingCode() {
-  let digits = "";
-  for (let i = 0; i < 9; i++) digits += Math.floor(Math.random() * 10);
-  return `BR${digits}BR`;
-}
-
-/** O id da sessão carrega o valor, para a tela do PIX exibir o total correto. */
-function encodeSession(amountCents: number): DemoSession {
-  const trackingCode = makeTrackingCode();
-  return {
-    sessionId: `demo-${amountCents}-${trackingCode}-${randomHex(6)}`,
-    amountCents,
-    trackingCode,
-  };
-}
-
-function decodeSession(sessionId: string): DemoSession {
-  const parts = sessionId.split("-");
-  const amountCents = Number(parts[1]) || 13790;
-  const trackingCode = parts[2] || makeTrackingCode();
-  return { sessionId, amountCents, trackingCode };
-}
-
-/** Código PIX fictício, apenas para renderizar o QR Code na tela. */
-function fakePixCode(sessionId: string, amountCents: number) {
-  const value = (amountCents / 100).toFixed(2);
-  return `00020126DEMO-PIX-VISUAL-ONLY${sessionId}5204000053039865802BR5913NOVA ERA DEMO6009SAO PAULO54${value}6304DEMO`;
-}
 
 export const createPixTransaction = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => data as Record<string, unknown>)
   .handler(async ({ data }) => {
-    const d = data as {
-      amountCents?: number;
-      name?: string;
-      email?: string;
-      phone?: string;
-      shipping?: {
-        street?: string;
-        streetNumber?: string;
-        neighborhood?: string;
-        city?: string;
-        state?: string;
-        zipCode?: string;
-      };
-      attribution?: {
-        utmSource?: string;
-        utmMedium?: string;
-        utmCampaign?: string;
-        utmContent?: string;
-        ttclid?: string;
-        gclid?: string;
-      };
-    };
-    const session = encodeSession(d.amountCents ?? 13790);
-
-    try {
-      const { addLocalOrder } = await import("./admin.server");
-      const newOrder = {
-        id: `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        created_at: new Date().toISOString(),
-        paid_at: null,
-        status: "pending",
-        amount_cents: session.amountCents,
-        product_name: "Kart Velox 4 rodas",
-        product_color: "Preto",
-        external_ref: session.sessionId,
-        transaction_id: `tx_${session.trackingCode}`,
-        gateway: "primecash",
-        customer_name: d.name ?? null,
-        customer_email: d.email ?? null,
-        customer_phone: d.phone ?? null,
-        address_street: d.shipping?.street ?? null,
-        address_number: d.shipping?.streetNumber ?? null,
-        address_complement: null,
-        address_neighborhood: d.shipping?.neighborhood ?? null,
-        address_city: d.shipping?.city ?? null,
-        address_state: d.shipping?.state ?? null,
-        address_zipcode: d.shipping?.zipCode ?? null,
-        utm_source: d.attribution?.utmSource ?? null,
-        utm_medium: d.attribution?.utmMedium ?? null,
-        utm_campaign: d.attribution?.utmCampaign ?? null,
-        utm_content: d.attribution?.utmContent ?? null,
-        fbclid: null,
-        gclid: d.attribution?.gclid ?? null,
-        ttclid: d.attribution?.ttclid ?? null,
-        fbc: null,
-        ttp: null,
-        user_agent: null,
-        device: "mobile",
-        traffic_source: d.attribution?.ttclid || (d.attribution?.utmSource || "").toLowerCase().includes("tiktok") ? "tiktok" : d.attribution?.gclid ? "google" : "direct",
-        pix_copied_at: null,
-        tracking_code: session.trackingCode,
-        logistics_status: "Aguardando pagamento",
-      };
-
-      addLocalOrder(newOrder);
-
-      try {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        await (supabaseAdmin.from("pix_orders") as any).insert({
-          id: newOrder.id,
-          created_at: newOrder.created_at,
-          paid_at: null,
-          status: newOrder.status,
-          amount_cents: newOrder.amount_cents,
-          currency: "BRL",
-          product_name: newOrder.product_name,
-          product_color: newOrder.product_color,
-          external_ref: newOrder.external_ref,
-          transaction_id: newOrder.transaction_id,
-          gateway: newOrder.gateway,
-          customer_name: newOrder.customer_name,
-          customer_email: newOrder.customer_email,
-          customer_phone: newOrder.customer_phone,
-          address_street: newOrder.address_street,
-          address_number: newOrder.address_number,
-          address_complement: newOrder.address_complement,
-          address_neighborhood: newOrder.address_neighborhood,
-          address_city: newOrder.address_city,
-          address_state: newOrder.address_state,
-          address_zipcode: newOrder.address_zipcode,
-          utm_source: newOrder.utm_source,
-          utm_medium: newOrder.utm_medium,
-          utm_campaign: newOrder.utm_campaign,
-          utm_content: newOrder.utm_content,
-          device: newOrder.device,
-          traffic_source: newOrder.traffic_source,
-          tracking_code: newOrder.tracking_code,
-          logistics_status: newOrder.logistics_status,
-        });
-      } catch (err) {
-        console.warn("[supabase] order insert fallback:", err);
-      }
-    } catch {
-      // safe
-    }
-
-    return { ok: true as const, sessionId: session.sessionId, error: "" };
+    const { processCreatePix } = await import("@/server/pix.server");
+    return await processCreatePix(data as any);
   });
 
 export const createUpsellPixTransaction = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => data as { sessionId?: string })
-  .handler(async () => {
-    const session = encodeSession(9653);
-    return { ok: true as const, sessionId: session.sessionId, error: "" };
+  .inputValidator((data: unknown) => data as { sessionId?: string; amountCents?: number })
+  .handler(async ({ data }) => {
+    const { sessionsMap, makeTrackingCode, emergencyPixCode } = await import("@/server/pix.server");
+    const { getGatewaySettings } = await import("./gateway-settings.server");
+    const { createBeehivePix } = await import("./beehive.server");
+    const { createAxxonPix } = await import("./axxon.server");
+
+    const parentSession = data?.sessionId ? sessionsMap.get(data.sessionId) : null;
+    const amountCents = data?.amountCents || 9653;
+    const upsellSessionId = `upsell_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+    const trackingCode = parentSession?.trackingCode || makeTrackingCode();
+
+    const gwConfig = await getGatewaySettings().catch(() => ({
+      active: "axxon" as const,
+      fallback: ["beehive" as const],
+    }));
+
+    let qrCode = "";
+    let qrImage = "";
+    let txId = "";
+    let gatewayUsed = gwConfig.active || "axxon";
+
+    const customer = {
+      name: parentSession?.customerName || "Cliente Kart",
+      email: parentSession?.customerEmail || "cliente@kart.com.br",
+      phone: parentSession?.customerPhone || "11999999999",
+      cpf: "08852175350",
+    };
+
+    if (gatewayUsed === "beehive") {
+      const bh = await createBeehivePix({
+        amountCents,
+        productName: "Acessórios Kart Velox (Capacete + Luva)",
+        orderId: upsellSessionId,
+        trackingCode,
+        customer,
+      });
+      if (bh.ok && bh.qrCode) {
+        qrCode = bh.qrCode;
+        qrImage = bh.qrImage || "";
+        txId = bh.transactionId || `BH-${Date.now()}`;
+      }
+    } else {
+      const ax = await createAxxonPix({
+        amountCents,
+        productName: "Acessórios Kart Velox (Capacete + Luva)",
+        externalRef: upsellSessionId,
+        customer,
+        clientIp: null,
+        postbackUrl: "https://lojaeranovakt.site/api/webhooks/axxonpay",
+      });
+      if (ax.ok && ax.qrCode) {
+        qrCode = ax.qrCode;
+        qrImage = ax.qrImage;
+        txId = ax.transactionId;
+      }
+    }
+
+    if (!qrCode) {
+      qrCode = emergencyPixCode(upsellSessionId, amountCents);
+      qrImage = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(qrCode)}`;
+      txId = `UPS-${Date.now()}`;
+    }
+
+    sessionsMap.set(upsellSessionId, {
+      sessionId: upsellSessionId,
+      orderId: upsellSessionId,
+      amountCents,
+      trackingCode,
+      qrCode,
+      qrImage,
+      transactionId: txId,
+      gateway: gatewayUsed,
+      createdAt: Date.now(),
+    });
+
+    return { ok: true as const, sessionId: upsellSessionId, error: "" };
   });
 
 export const getCheckoutSession = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => data as { sessionId: string })
   .handler(async ({ data }) => {
-    const s = decodeSession(data.sessionId);
-    return {
-      ok: true as const,
-      qrCode: fakePixCode(s.sessionId, s.amountCents),
-      qrImage: "",
-      amountCents: s.amountCents,
-      trackingCode: s.trackingCode,
-      error: "",
-    };
+    const { processGetCheckoutSession } = await import("@/server/pix.server");
+    return await processGetCheckoutSession(data.sessionId);
   });
 
 export const getTransactionStatus = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => data as { sessionId: string })
-  .handler(async () => {
-    // Demo: o pedido permanece aguardando pagamento.
-    return {
-      ok: true as const,
-      status: "pending" as string,
-      ttEventId: "" as string,
-      externalRef: "" as string,
-      error: "",
-    };
+  .handler(async ({ data }) => {
+    const { processGetTransactionStatus } = await import("@/server/pix.server");
+    return await processGetTransactionStatus(data.sessionId);
   });
 
 export const markPixCopied = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => data as { sessionId: string })
-  .handler(async () => ({ ok: true as const }));
+  .handler(async ({ data }) => {
+    const { localOrders } = await import("./admin.server");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const sId = data.sessionId;
+    const now = new Date().toISOString();
+    const order = localOrders.find((o) => o.external_ref === sId || o.id === sId);
+    if (order) order.pix_copied_at = now;
+
+    try {
+      await (supabaseAdmin.from("pix_orders") as any)
+        .update({ pix_copied_at: now, updated_at: now })
+        .or(`external_ref.eq.${sId},id.eq.${sId}`);
+    } catch {}
+
+    return { ok: true as const };
+  });
 
 export const uploadPaymentProof = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => data as { sessionId: string; imageData: string; mimeType?: string })
-  .handler(async () => ({ ok: true as const, error: "" }));
+  .inputValidator(
+    (data: unknown) => data as { sessionId: string; imageData: string; mimeType?: string }
+  )
+  .handler(async ({ data }) => {
+    try {
+      const { saveProof } = await import("./proofs.server");
+      const { sessionsMap } = await import("@/server/pix.server");
+      const session = sessionsMap.get(data.sessionId);
+      await saveProof({
+        transactionId: session?.transactionId || data.sessionId,
+        imageData: data.imageData,
+        mimeType: data.mimeType || "image/jpeg",
+      });
+      return { ok: true as const, error: "" };
+    } catch (e: any) {
+      return { ok: false as const, error: e?.message || "Falha ao enviar comprovante" };
+    }
+  });
+
+export async function markOrderAsPaid(identifier: string): Promise<boolean> {
+  const { markOrderAsPaid: mark } = await import("@/server/pix.server");
+  return await mark(identifier);
+}

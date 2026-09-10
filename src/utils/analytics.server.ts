@@ -185,9 +185,29 @@ export type DashboardMetrics = {
 
 import { localOrders } from "./admin.server";
 
+let cachedLiveCounts: { data: LiveCounts; expiresAt: number } | null = null;
+let cachedLiveVisitors: { data: LiveVisitor[]; expiresAt: number } | null = null;
+const cachedAggregates = new Map<string, { data: any; expiresAt: number }>();
+
+async function cachedQuery<T>(key: string, ttlMs: number, fn: () => Promise<T>): Promise<T> {
+  const hit = cachedAggregates.get(key);
+  if (hit && Date.now() < hit.expiresAt) {
+    return hit.data as T;
+  }
+  const res = await fn();
+  cachedAggregates.set(key, { data: res, expiresAt: Date.now() + ttlMs });
+  return res;
+}
+
 /** Active = heartbeat received within the last 30 seconds. */
 export async function getLiveCounts(): Promise<LiveCounts> {
+  if (cachedLiveCounts && Date.now() < cachedLiveCounts.expiresAt) {
+    return cachedLiveCounts.data;
+  }
+
   const cutoff = new Date(Date.now() - 30_000).toISOString();
+  let result: LiveCounts;
+
   try {
     const { data, error } = await (supabaseAdmin.from("live_sessions") as any)
       .select("stage")
@@ -200,7 +220,9 @@ export async function getLiveCounts(): Promise<LiveCounts> {
         else if (r.stage === "purchase") counts.purchase++;
         else counts.site++;
       }
-      return counts;
+      result = counts;
+      cachedLiveCounts = { data: result, expiresAt: Date.now() + 2_500 };
+      return result;
     }
   } catch {}
 
@@ -217,72 +239,85 @@ export async function getLiveCounts(): Promise<LiveCounts> {
     }
   }
 
-  if (site === 0 && checkout === 0 && purchase === 0) {
-    return { site: 3, checkout: 1, purchase: 0, total: 4 };
-  }
-
-  return { site, checkout, purchase, total: site + checkout + purchase };
+  result = { site, checkout, purchase, total: site + checkout + purchase };
+  cachedLiveCounts = { data: result, expiresAt: Date.now() + 2_500 };
+  return result;
 }
 
 /** Top cities active in the last N minutes (default 30 min for a useful sample). */
 export async function getTopCities(limit = 10, windowMinutes = 30): Promise<CityCount[]> {
-  const cutoff = new Date(Date.now() - windowMinutes * 60_000).toISOString();
-  try {
-    const { data, error } = await (supabaseAdmin.from("live_sessions") as any)
-      .select("city, region, country")
-      .gte("last_seen", cutoff)
-      .not("city", "is", null);
-    if (!error && Array.isArray(data) && data.length > 0) {
-      const rows = data as Array<{ city: string | null; region: string | null; country: string | null }>;
-      const map = new Map<string, CityCount>();
-      for (const r of rows) {
-        const c = (r.city || "").trim();
-        if (!c) continue;
-        const key = `${c}|${r.region ?? ""}|${r.country ?? ""}`;
-        const existing = map.get(key);
-        if (existing) existing.count++;
-        else map.set(key, { city: c, region: r.region, country: r.country, count: 1 });
+  return cachedQuery(`cities:${limit}:${windowMinutes}`, 10_000, async () => {
+    const cutoff = new Date(Date.now() - windowMinutes * 60_000).toISOString();
+    try {
+      const { data, error } = await (supabaseAdmin.from("live_sessions") as any)
+        .select("city, region, country")
+        .gte("last_seen", cutoff)
+        .not("city", "is", null);
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const rows = data as Array<{ city: string | null; region: string | null; country: string | null }>;
+        const map = new Map<string, CityCount>();
+        for (const r of rows) {
+          const c = (r.city || "").trim();
+          if (!c) continue;
+          const key = `${c}|${r.region ?? ""}|${r.country ?? ""}`;
+          const existing = map.get(key);
+          if (existing) existing.count++;
+          else map.set(key, { city: c, region: r.region, country: r.country, count: 1 });
+        }
+        return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, limit);
       }
-      return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, limit);
+    } catch {}
+
+    const map = new Map<string, CityCount>();
+    for (const s of localLiveSessions.values()) {
+      const c = (s.city || "").trim();
+      if (!c) continue;
+      const key = `${c}|${s.region ?? ""}|${s.country ?? ""}`;
+      const existing = map.get(key);
+      if (existing) existing.count++;
+      else map.set(key, { city: c, region: s.region, country: s.country, count: 1 });
     }
-  } catch {}
 
-  const map = new Map<string, CityCount>();
-  for (const s of localLiveSessions.values()) {
-    const c = (s.city || "").trim();
-    if (!c) continue;
-    const key = `${c}|${s.region ?? ""}|${s.country ?? ""}`;
-    const existing = map.get(key);
-    if (existing) existing.count++;
-    else map.set(key, { city: c, region: s.region, country: s.country, count: 1 });
-  }
-
-  if (map.size === 0) {
-    return [
-      { city: "São Paulo", region: "SP", country: "BR", count: 14 },
-      { city: "Rio de Janeiro", region: "RJ", country: "BR", count: 9 },
-      { city: "Belo Horizonte", region: "MG", country: "BR", count: 6 },
-      { city: "Curitiba", region: "PR", country: "BR", count: 4 },
-      { city: "Brasília", region: "DF", country: "BR", count: 3 },
-    ];
-  }
-
-  return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, limit);
+    return Array.from(map.values()).sort((a, b) => b.count - a.count).slice(0, limit);
+  });
 }
 
 async function getRangeCounts(sinceIso: string): Promise<RangeCounts> {
-  try {
-    const { data, error } = await (supabaseAdmin.from("pix_orders") as any)
-      .select("status, amount_cents, created_at, paid_at, external_ref")
-      .gte("created_at", sinceIso);
-    if (!error && Array.isArray(data) && data.length > 0) {
-      const rows = data as Array<{ status: string; amount_cents: number; paid_at: string | null; external_ref: string | null }>;
-      let pixGenerated = 0;
-      let pixPaid = 0;
-      let revenueCents = 0;
-      let upsellPaid = 0;
-      let upsellRevenueCents = 0;
-      for (const r of rows) {
+  return cachedQuery(`range:${sinceIso}`, 8_000, async () => {
+    try {
+      const { data, error } = await (supabaseAdmin.from("pix_orders") as any)
+        .select("status, amount_cents, created_at, paid_at, external_ref")
+        .gte("created_at", sinceIso);
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const rows = data as Array<{ status: string; amount_cents: number; paid_at: string | null; external_ref: string | null }>;
+        let pixGenerated = 0;
+        let pixPaid = 0;
+        let revenueCents = 0;
+        let upsellPaid = 0;
+        let upsellRevenueCents = 0;
+        for (const r of rows) {
+          pixGenerated++;
+          if (r.status === "paid") {
+            pixPaid++;
+            revenueCents += r.amount_cents ?? 0;
+            if (r.external_ref && r.external_ref.startsWith("upsell-")) {
+              upsellPaid++;
+              upsellRevenueCents += r.amount_cents ?? 0;
+            }
+          }
+        }
+        return { pixGenerated, pixPaid, revenueCents, upsellPaid, upsellRevenueCents };
+      }
+    } catch {}
+
+    let pixGenerated = 0;
+    let pixPaid = 0;
+    let revenueCents = 0;
+    let upsellPaid = 0;
+    let upsellRevenueCents = 0;
+
+    for (const r of localOrders) {
+      if (r.created_at >= sinceIso) {
         pixGenerated++;
         if (r.status === "paid") {
           pixPaid++;
@@ -293,31 +328,10 @@ async function getRangeCounts(sinceIso: string): Promise<RangeCounts> {
           }
         }
       }
-      return { pixGenerated, pixPaid, revenueCents, upsellPaid, upsellRevenueCents };
     }
-  } catch {}
 
-  let pixGenerated = 0;
-  let pixPaid = 0;
-  let revenueCents = 0;
-  let upsellPaid = 0;
-  let upsellRevenueCents = 0;
-
-  for (const r of localOrders) {
-    if (r.created_at >= sinceIso) {
-      pixGenerated++;
-      if (r.status === "paid") {
-        pixPaid++;
-        revenueCents += r.amount_cents ?? 0;
-        if (r.external_ref && r.external_ref.startsWith("upsell-")) {
-          upsellPaid++;
-          upsellRevenueCents += r.amount_cents ?? 0;
-        }
-      }
-    }
-  }
-
-  return { pixGenerated, pixPaid, revenueCents, upsellPaid, upsellRevenueCents };
+    return { pixGenerated, pixPaid, revenueCents, upsellPaid, upsellRevenueCents };
+  });
 }
 
 export function getDateRangeForPeriod(period: DatePeriod = "today"): {
@@ -347,7 +361,8 @@ export function getDateRangeForPeriod(period: DatePeriod = "today"): {
 }
 
 export async function getFunnelMetrics(period: DatePeriod = "today"): Promise<FunnelSummary> {
-  const { fromIso, toIso, label } = getDateRangeForPeriod(period);
+  return cachedQuery(`funnel:${period}`, 8_000, async () => {
+    const { fromIso, toIso, label } = getDateRangeForPeriod(period);
 
   const matchingOrders = localOrders.filter((o) => {
     if (fromIso && o.created_at < fromIso) return false;
@@ -510,6 +525,7 @@ export async function getFunnelMetrics(period: DatePeriod = "today"): Promise<Fu
       status: o.status,
     })),
   };
+  });
 }
 
 export async function getDashboardMetrics(period: DatePeriod = "today"): Promise<DashboardMetrics> {
@@ -543,6 +559,10 @@ export async function getDashboardMetrics(period: DatePeriod = "today"): Promise
 
 /** Detalhe de cada visitante ativo nos últimos 30s. */
 export async function getLiveVisitors(limit = 60): Promise<LiveVisitor[]> {
+  if (cachedLiveVisitors && Date.now() < cachedLiveVisitors.expiresAt) {
+    return cachedLiveVisitors.data.slice(0, limit);
+  }
+
   const cutoff = new Date(Date.now() - 30_000).toISOString();
   try {
     const { data, error } = await (supabaseAdmin.from("live_sessions") as any)
@@ -552,7 +572,7 @@ export async function getLiveVisitors(limit = 60): Promise<LiveVisitor[]> {
       .limit(limit);
     if (!error && Array.isArray(data) && data.length > 0) {
       const now = Date.now();
-      return (data as Array<Record<string, any>>).map((r) => {
+      const list = (data as Array<Record<string, any>>).map((r) => {
         const ua = String(r.user_agent ?? "");
         return {
           sessionId: String(r.session_id),
@@ -572,6 +592,8 @@ export async function getLiveVisitors(limit = 60): Promise<LiveVisitor[]> {
           secondsAgo: Math.max(0, Math.round((now - new Date(String(r.last_seen)).getTime()) / 1000)),
         };
       });
+      cachedLiveVisitors = { data: list, expiresAt: Date.now() + 2_500 };
+      return list.slice(0, limit);
     }
   } catch {}
 
@@ -601,43 +623,7 @@ export async function getLiveVisitors(limit = 60): Promise<LiveVisitor[]> {
     }
   }
 
-  if (list.length === 0) {
-    list.push({
-      sessionId: "demo-session-sp1",
-      shortId: "SP9021",
-      page: "/",
-      stage: "site",
-      source: "tiktok",
-      campaign: "kart-feed-conversoes",
-      city: "São Paulo",
-      region: "SP",
-      country: "BR",
-      device: "mobile",
-      landing: "/",
-      referrer: "https://www.tiktok.com/",
-      firstSeen: new Date(now - 120_000).toISOString(),
-      lastSeen: new Date(now - 8_000).toISOString(),
-      secondsAgo: 8,
-    });
-    list.push({
-      sessionId: "demo-session-rj2",
-      shortId: "RJ8812",
-      page: "/checkout/dados",
-      stage: "checkout",
-      source: "tiktok",
-      campaign: "kart-campanha-tiktok-01",
-      city: "Rio de Janeiro",
-      region: "RJ",
-      country: "BR",
-      device: "mobile",
-      landing: "/",
-      referrer: "https://www.tiktok.com/",
-      firstSeen: new Date(now - 300_000).toISOString(),
-      lastSeen: new Date(now - 12_000).toISOString(),
-      secondsAgo: 12,
-    });
-  }
-
+  cachedLiveVisitors = { data: list, expiresAt: Date.now() + 2_500 };
   return list.slice(0, limit);
 }
 

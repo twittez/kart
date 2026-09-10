@@ -33,6 +33,8 @@ import { Route as CheckoutPixRouteImport } from './routes/checkout.pix'
 import { Route as CheckoutSucessoRouteImport } from './routes/checkout.sucesso'
 import { Route as CheckoutUpsellRouteImport } from './routes/checkout.upsell'
 import { Route as ApiAdminStreamRouteImport } from './routes/api.admin.stream'
+import { Route as ApiWebhooksAxxonpayRouteImport } from './routes/api.webhooks.axxonpay'
+import { Route as ApiWebhooksBeehiveRouteImport } from './routes/api.webhooks.beehive'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -154,6 +156,16 @@ const ApiAdminStreamRoute = ApiAdminStreamRouteImport.update({
   path: '/api/admin/stream',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiWebhooksAxxonpayRoute = ApiWebhooksAxxonpayRouteImport.update({
+  id: '/api/webhooks/axxonpay',
+  path: '/api/webhooks/axxonpay',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiWebhooksBeehiveRoute = ApiWebhooksBeehiveRouteImport.update({
+  id: '/api/webhooks/beehive',
+  path: '/api/webhooks/beehive',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -180,6 +192,8 @@ export interface FileRoutesByFullPath {
   '/checkout/upsell': typeof CheckoutUpsellRoute
   '/admin/': typeof AdminIndexRoute
   '/api/admin/stream': typeof ApiAdminStreamRoute
+  '/api/webhooks/axxonpay': typeof ApiWebhooksAxxonpayRoute
+  '/api/webhooks/beehive': typeof ApiWebhooksBeehiveRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -206,6 +220,8 @@ export interface FileRoutesByTo {
   '/checkout/upsell': typeof CheckoutUpsellRoute
   '/admin': typeof AdminIndexRoute
   '/api/admin/stream': typeof ApiAdminStreamRoute
+  '/api/webhooks/axxonpay': typeof ApiWebhooksAxxonpayRoute
+  '/api/webhooks/beehive': typeof ApiWebhooksBeehiveRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -233,6 +249,8 @@ export interface FileRoutesById {
   '/checkout/upsell': typeof CheckoutUpsellRoute
   '/admin/': typeof AdminIndexRoute
   '/api/admin/stream': typeof ApiAdminStreamRoute
+  '/api/webhooks/axxonpay': typeof ApiWebhooksAxxonpayRoute
+  '/api/webhooks/beehive': typeof ApiWebhooksBeehiveRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -261,6 +279,8 @@ export interface FileRouteTypes {
     | '/checkout/upsell'
     | '/admin/'
     | '/api/admin/stream'
+    | '/api/webhooks/axxonpay'
+    | '/api/webhooks/beehive'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -287,6 +307,8 @@ export interface FileRouteTypes {
     | '/checkout/upsell'
     | '/admin'
     | '/api/admin/stream'
+    | '/api/webhooks/axxonpay'
+    | '/api/webhooks/beehive'
   id:
     | '__root__'
     | '/'
@@ -313,6 +335,8 @@ export interface FileRouteTypes {
     | '/checkout/upsell'
     | '/admin/'
     | '/api/admin/stream'
+    | '/api/webhooks/axxonpay'
+    | '/api/webhooks/beehive'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -340,6 +364,8 @@ export interface RootRouteChildren {
   CheckoutUpsellRoute: typeof CheckoutUpsellRoute
   AdminIndexRoute: typeof AdminIndexRoute
   ApiAdminStreamRoute: typeof ApiAdminStreamRoute
+  ApiWebhooksAxxonpayRoute: typeof ApiWebhooksAxxonpayRoute
+  ApiWebhooksBeehiveRoute: typeof ApiWebhooksBeehiveRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -512,6 +538,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminStreamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/webhooks/axxonpay': {
+      id: '/api/webhooks/axxonpay'
+      path: '/api/webhooks/axxonpay'
+      fullPath: '/api/webhooks/axxonpay'
+      preLoaderRoute: typeof ApiWebhooksAxxonpayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/webhooks/beehive': {
+      id: '/api/webhooks/beehive'
+      path: '/api/webhooks/beehive'
+      fullPath: '/api/webhooks/beehive'
+      preLoaderRoute: typeof ApiWebhooksBeehiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -540,6 +580,8 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutUpsellRoute: CheckoutUpsellRoute,
   AdminIndexRoute: AdminIndexRoute,
   ApiAdminStreamRoute: ApiAdminStreamRoute,
+  ApiWebhooksAxxonpayRoute: ApiWebhooksAxxonpayRoute,
+  ApiWebhooksBeehiveRoute: ApiWebhooksBeehiveRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

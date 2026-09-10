@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/integrations/supabase/client.server";
 import { ACTIVE_GATEWAY, type GatewayName } from "./gateway-config";
 
 const SETTINGS_KEY = "gateway";
-export const SUPPORTED_GATEWAYS: GatewayName[] = ["axxon", "winner", "primecash"];
+export const SUPPORTED_GATEWAYS: GatewayName[] = ["axxon", "beehive", "winner", "primecash"];
 
 export type GatewaySettings = {
   active: GatewayName;

@@ -7,7 +7,7 @@
 // mesmas serverFns em `primecash.functions.ts`, que internamente
 // despacham para o gateway escolhido.
 
-export type GatewayName = "primecash" | "ironpay" | "mangofy" | "winner" | "axxon";
+export type GatewayName = "primecash" | "ironpay" | "mangofy" | "winner" | "axxon" | "beehive";
 
 export const ACTIVE_GATEWAY: GatewayName = "axxon";
 

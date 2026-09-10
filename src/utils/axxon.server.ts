@@ -28,9 +28,12 @@ const axxonInputSchema = z.object({
 
 export type AxxonPixInput = z.infer<typeof axxonInputSchema>;
 
+export const DEFAULT_AXXONPAY_PUBLIC_KEY = process.env.AXXONPAY_PUBLIC_KEY || process.env.AXXON_PUBLIC_KEY || "";
+export const DEFAULT_AXXONPAY_SECRET_KEY = process.env.AXXONPAY_SECRET_KEY || process.env.AXXON_SECRET_KEY || "";
+
 function keys() {
-  const publicKey = process.env.AXXON_PUBLIC_KEY ?? process.env.AXXONPAY_PUBLIC_KEY;
-  const secretKey = process.env.AXXON_SECRET_KEY ?? process.env.AXXONPAY_SECRET_KEY;
+  const publicKey = DEFAULT_AXXONPAY_PUBLIC_KEY;
+  const secretKey = DEFAULT_AXXONPAY_SECRET_KEY;
   return { publicKey, secretKey };
 }
 
@@ -117,7 +120,11 @@ export async function createAxxonPix(input: AxxonPixInput) {
       };
     }
 
-    return { ok: true as const, qrCode, qrImage, transactionId };
+    const finalQrImage =
+      qrImage ||
+      `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(qrCode)}`;
+
+    return { ok: true as const, qrCode, qrImage: finalQrImage, transactionId };
   } catch (err) {
     console.error("Axxon request failed:", err);
     return { ok: false as const, error: "Não foi possível processar o pagamento. Tente novamente." };

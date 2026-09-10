@@ -15,7 +15,7 @@ export const Route = createFileRoute("/admin/")({
   component: AdminLivePage,
 });
 
-const REFRESH_MS = 1_000;
+const REFRESH_MS = 4_000;
 
 function AdminLivePage() {
   const [authed, setAuthed] = useState(false);

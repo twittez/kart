@@ -71,7 +71,7 @@ export const Route = createFileRoute("/api/admin/stream")({
             await tick();
             const interval = setInterval(() => {
               void tick();
-            }, 1_000);
+            }, 3_000);
 
             request.signal.addEventListener("abort", () => {
               closed = true;
