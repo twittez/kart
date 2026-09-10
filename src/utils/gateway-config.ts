@@ -9,7 +9,7 @@
 
 export type GatewayName = "primecash" | "ironpay" | "mangofy" | "winner" | "axxon" | "beehive";
 
-export const ACTIVE_GATEWAY: GatewayName = "axxon";
+export const ACTIVE_GATEWAY: GatewayName = "beehive";
 
 
 // ---- IronPay ----
