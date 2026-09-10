@@ -52,7 +52,18 @@ function createSupabaseClient() {
       storage: brokeredPreviewStorage(),
       persistSession: true,
       autoRefreshToken: true,
-    }
+    },
+    ...(typeof window === 'undefined' ? {
+      realtime: {
+        transport: class WebSocketDummy {
+          readyState = 3;
+          send() {}
+          close() {}
+          addEventListener() {}
+          removeEventListener() {}
+        } as any,
+      }
+    } : {}),
   });
 }
 
