@@ -30,12 +30,16 @@ function createSupabaseFetch(supabaseKey: string): typeof fetch {
 }
 
 function createSupabaseAdminClient() {
-  const SUPABASE_URL = process.env['SUPABASE_URL'] || process.env['VITE_SUPABASE_URL'] || 'https://elnhsroicsaqqscbqyzf.supabase.co';
+  const SUPABASE_URL =
+    process.env['SUPABASE_URL'] ||
+    process.env['VITE_SUPABASE_URL'] ||
+    'https://faldglzveuiipwzncjgd.supabase.co';
   const SUPABASE_KEY =
     process.env['SUPABASE_SERVICE_ROLE_KEY'] ||
+    process.env['SUPABASE_SECRET_KEY'] ||
     process.env['SUPABASE_PUBLISHABLE_KEY'] ||
     process.env['VITE_SUPABASE_PUBLISHABLE_KEY'] ||
-    'sb_publishable_X3yNSvgUbeZoH3PNADRbsQ_zw7Jqzpv';
+    'sb_publishable_yYzim1MAbzpB5n84tYOzGQ_tZuIT-jq';
 
   return createClient<Database>(SUPABASE_URL, SUPABASE_KEY, {
     global: {

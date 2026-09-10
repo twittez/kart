@@ -77,7 +77,7 @@ export const createPixTransaction = createServerFn({ method: "POST" })
 
     try {
       const { addLocalOrder } = await import("./admin.server");
-      addLocalOrder({
+      const newOrder = {
         id: `ord_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         created_at: new Date().toISOString(),
         paid_at: null,
@@ -113,7 +113,46 @@ export const createPixTransaction = createServerFn({ method: "POST" })
         pix_copied_at: null,
         tracking_code: session.trackingCode,
         logistics_status: "Aguardando pagamento",
-      });
+      };
+
+      addLocalOrder(newOrder);
+
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        await (supabaseAdmin.from("pix_orders") as any).insert({
+          id: newOrder.id,
+          created_at: newOrder.created_at,
+          paid_at: null,
+          status: newOrder.status,
+          amount_cents: newOrder.amount_cents,
+          currency: "BRL",
+          product_name: newOrder.product_name,
+          product_color: newOrder.product_color,
+          external_ref: newOrder.external_ref,
+          transaction_id: newOrder.transaction_id,
+          gateway: newOrder.gateway,
+          customer_name: newOrder.customer_name,
+          customer_email: newOrder.customer_email,
+          customer_phone: newOrder.customer_phone,
+          address_street: newOrder.address_street,
+          address_number: newOrder.address_number,
+          address_complement: newOrder.address_complement,
+          address_neighborhood: newOrder.address_neighborhood,
+          address_city: newOrder.address_city,
+          address_state: newOrder.address_state,
+          address_zipcode: newOrder.address_zipcode,
+          utm_source: newOrder.utm_source,
+          utm_medium: newOrder.utm_medium,
+          utm_campaign: newOrder.utm_campaign,
+          utm_content: newOrder.utm_content,
+          device: newOrder.device,
+          traffic_source: newOrder.traffic_source,
+          tracking_code: newOrder.tracking_code,
+          logistics_status: newOrder.logistics_status,
+        });
+      } catch (err) {
+        console.warn("[supabase] order insert fallback:", err);
+      }
     } catch {
       // safe
     }
