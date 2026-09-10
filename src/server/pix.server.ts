@@ -145,13 +145,13 @@ export async function processCreatePix(d: {
   };
 
   const gwConfig = await getGatewaySettings().catch(() => ({
-    active: "axxon" as const,
-    fallback: ["beehive" as const],
+    active: "beehive" as const,
+    fallback: ["axxon" as const],
   }));
 
-  const primaryGateway = gwConfig.active || "axxon";
+  const primaryGateway = gwConfig.active || "beehive";
   const secondaryGateway =
-    gwConfig.fallback[0] || (primaryGateway === "axxon" ? "beehive" : "axxon");
+    gwConfig.fallback[0] || (primaryGateway === "beehive" ? "axxon" : "axxon");
 
   let finalQrCode = "";
   let finalQrImage = "";
