@@ -310,7 +310,7 @@ export async function processCreatePix(d: {
       customer_name: newOrder.customer_name,
       customer_email: newOrder.customer_email,
       customer_phone: newOrder.customer_phone,
-      customer_cpf: newOrder.customer_cpf,
+      cpf_hash: newOrder.customer_cpf,
       address_street: newOrder.address_street,
       address_number: newOrder.address_number,
       address_complement: newOrder.address_complement,

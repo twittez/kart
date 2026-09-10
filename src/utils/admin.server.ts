@@ -578,7 +578,10 @@ async function fetchOrders(fromIso?: string, toIso?: string): Promise<OrderRow[]
     if (toIso) q = q.lte("created_at", toIso);
     const { data, error } = await q;
     if (!error && Array.isArray(data) && data.length > 0) {
-      return data as OrderRow[];
+      return data.map((d: any) => ({
+        ...d,
+        customer_cpf: d.customer_cpf || d.cpf_hash || null,
+      })) as OrderRow[];
     }
   } catch {
     // fallback to local orders
