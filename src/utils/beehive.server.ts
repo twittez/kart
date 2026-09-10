@@ -100,6 +100,7 @@ export async function createBeehivePix(
       city: input.customer.address.city || "São Paulo",
       state: (input.customer.address.state || "SP").toUpperCase().slice(0, 2),
       zipCode: (input.customer.address.cep || "01310100").replace(/\D/g, ""),
+      country: "BR",
     };
   }
 
